@@ -7,5 +7,5 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 export default function Page() {
-  return "Hello World";
+  return <p>Hello World</p>;
 }
