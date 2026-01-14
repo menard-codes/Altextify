@@ -13,20 +13,18 @@ export async function getProductImages({
   return await gql(
     `
         #graphql
-        query getProduct(
+        query getProductImages(
             $id: ID!
         ) {
             product(id: $id) {
                 id
                 title
                 descriptionHtml
-                hasOnlyDefaultVariant
                 # Assuming that, realistically, all stores will not exceed
                 # the maximum number of variants: 250 (no pagination intended for this use case)
                 variants(first: 250) {
                     edges {
                         node {
-                            id
                             selectedOptions {
                                 name
                                 value
@@ -50,6 +48,10 @@ export async function getProductImages({
                     edges {
                         node {
                             id
+                            mediaContentType
+                            ... on MediaImage {
+                                mimeType
+                            }
                             preview {
                                 image {
                                     url
