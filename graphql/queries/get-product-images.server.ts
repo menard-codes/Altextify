@@ -1,7 +1,7 @@
 import { AdminOperations } from "@shopify/admin-api-client";
 import { GraphQLClient } from "node_modules/@shopify/shopify-app-react-router/dist/ts/server/clients/types";
 
-type GetProductImagesParams = {
+export type GetProductImagesParams = {
   gql: GraphQLClient<AdminOperations>;
   params: { id: string };
 };

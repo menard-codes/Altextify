@@ -7,74 +7,42 @@ import {
   getProductIds,
   GetProductIdsParams,
 } from "graphql/queries/get-product-ids.server";
-import { getProductImages } from "graphql/queries/get-product-images.server";
+import {
+  getProductImages,
+  GetProductImagesParams,
+} from "graphql/queries/get-product-images.server";
 import { getShopInfo } from "graphql/queries/get-shop.server";
 
 export class AIAltTextGeneratorService {
   /**
    * A bulk process that queries all the products in scope,
-   * fetches their images (both its own and its variants),
-   * then generate alt texts for each of those images with
-   * the product context.
+   * fetches their images, then generate alt texts for each of those images.
    * @param {GetProductIdsParams} getProductIdsParams
    */
-  async productImagesBulkAltGenerate(getProductIdsParams: GetProductIdsParams) {
-    const shopInfoResponse = await getShopInfo(getProductIdsParams.gql);
-    const shopInfo = await shopInfoResponse.json();
-
+  async bulkGenerateProductImageAltTexts(
+    getProductIdsParams: GetProductIdsParams,
+  ) {
     let paginatedProductIds: FetchResponseBody<GetProductIdsQuery>;
-    const imgsWithGeneratedAltText: { id: string; altText: string }[] = [];
+    let imgsWithGeneratedAltText: { id: string; altText: string }[] = [];
 
     do {
-      // query the product ids
       const productIdsResponse = await getProductIds(getProductIdsParams);
       paginatedProductIds = await productIdsResponse.json();
 
-      // query the images of the product, then generate alt texts
+      // Get all the images associated for each product and generate an alt text for them
       for (const { node } of paginatedProductIds.data!.products.edges) {
-        const productImagesResponse = await getProductImages({
-          gql: getProductIdsParams.gql,
-          params: { id: node.id },
-        });
-        const { data } = await productImagesResponse.json();
-
-        // flatten data (variants media & product media)
-        const product = data?.product;
-        const variants = product?.variants.edges.map(({ node }) => ({
-          ...node,
-          media: node.media.edges.map(({ node: { id } }) => id),
-        }));
-        const productMedia =
-          product?.media.edges.map(({ node }) => ({
-            ...node,
-          })) ?? [];
-
-        // generate alt texts
-        for (const { id, mediaContentType, preview } of productMedia) {
-          if (mediaContentType !== "IMAGE") return;
-
-          // finds the variant context of the image (if it has), otherwise, undefined
-          const variantContext = variants?.find((variant) =>
-            variant.media.includes(id),
-          );
-
-          imgsWithGeneratedAltText.push({
-            id,
-            altText: await this.productImageAltGenerate({
-              mimeType: (node as Pick<MediaImage, "mimeType">)
-                .mimeType as string,
-              url: preview?.image?.url,
-              productContext: {
-                title: product?.title || "",
-                description: product?.descriptionHtml,
-                shop: (shopInfo.data?.shop as string | undefined) || "",
-                variant: variantContext
-                  ? variantContext.selectedOptions
-                  : undefined,
-              },
-            }),
+        const productImagesWithGeneratedAltTexts =
+          await this.generateProductImageAltTexts({
+            gql: getProductIdsParams.gql,
+            params: {
+              id: node.id,
+            },
           });
-        }
+
+        imgsWithGeneratedAltText = [
+          ...imgsWithGeneratedAltText,
+          ...productImagesWithGeneratedAltTexts,
+        ];
       }
     } while (paginatedProductIds.data?.products.pageInfo.hasNextPage);
 
@@ -82,14 +50,75 @@ export class AIAltTextGeneratorService {
   }
 
   /**
-   * Generates an alt text for the provided product image.
-   * Uses the provided product context in generating the Alt Text
-   * @param productImageParams
+   * Fetches all the images related to the given product and generates alt texts
+   * for each of those images using the product context. Variant images gets an
+   * additional context.
+   * @param {GetProductImagesParams} getProductImagesParams
    * @returns
    */
-  async productImageAltGenerate({
-    mimeType,
+  async generateProductImageAltTexts(
+    getProductImagesParams: GetProductImagesParams,
+  ) {
+    const shopInfoResponse = await getShopInfo(getProductImagesParams.gql);
+    const shopInfo = await shopInfoResponse.json();
+
+    const productImagesResponse = await getProductImages(
+      getProductImagesParams,
+    );
+    const { data } = await productImagesResponse.json();
+
+    // flatten data (variants media & product media)
+    const product = data?.product;
+    const variants = product?.variants.edges.map(({ node }) => ({
+      ...node,
+      media: node.media.edges.map(({ node: { id } }) => id),
+    }));
+    const productMediaArray =
+      product?.media.edges.map(({ node }) => ({
+        ...node,
+      })) ?? [];
+
+    // This will contain the product images and their generated alt texts,
+    // and will be return by this method
+    const imgsWithGeneratedAltText: { id: string; altText: string }[] = [];
+
+    // generate alt texts for all its images
+    for (const productMedia of productMediaArray) {
+      if (productMedia.mediaContentType !== "IMAGE") continue;
+
+      // finds the variant context of the image (if it has), otherwise, undefined
+      const variantContext = variants?.find((variant) =>
+        variant.media.includes(productMedia.id),
+      );
+
+      const generatedAltText = await this._generateProductImageAlt({
+        url: productMedia.preview?.image?.url,
+        mimeType: (productMedia as Pick<MediaImage, "mimeType">)
+          .mimeType as string,
+        productContext: {
+          title: product?.title ?? "",
+          description: product?.descriptionHtml,
+          shop: shopInfo.data?.shop.name ?? "",
+          variant: variantContext ? variantContext.selectedOptions : undefined,
+        },
+      });
+
+      imgsWithGeneratedAltText.push({
+        id: productMedia.id,
+        altText: generatedAltText,
+      });
+    }
+
+    return imgsWithGeneratedAltText;
+  }
+
+  /**
+   * Generates an alt text for the given product image
+   * @param params
+   */
+  private async _generateProductImageAlt({
     url,
+    mimeType,
     productContext,
   }: {
     url: string;
@@ -98,13 +127,10 @@ export class AIAltTextGeneratorService {
       title: string;
       description: string;
       shop: string;
-      variant?: {
-        name: string;
-        value: string;
-      }[];
+      variant?: { name: string; value: string }[];
     };
   }) {
-    const imgBase64 = await this.fetchImageAsBase64(url);
+    const imgBase64 = await this._fetchImageAsBase64(url);
 
     const geminiAdapter = new GeminiAdapter();
     const aiService = new AIService(geminiAdapter);
@@ -113,7 +139,7 @@ export class AIAltTextGeneratorService {
       model: "gemini-2.5-flash-lite",
       media: [
         {
-          mimeType,
+          mimeType: mimeType,
           base64: imgBase64,
         },
       ],
@@ -127,10 +153,10 @@ export class AIAltTextGeneratorService {
             <product-name>${productContext.title}</product-name>
             <product-description>${productContext.description}</product-description>
             ${
-              productContext?.variant
+              productContext.variant
                 ? `
             <product-variants about="all the product variants associated with this image">
-                ${productContext.variant?.map(
+                ${productContext.variant.map(
                   ({ name, value }) =>
                     `<variant name="${name}" value="${value}">`,
                 )}
@@ -148,7 +174,12 @@ export class AIAltTextGeneratorService {
     });
   }
 
-  private async fetchImageAsBase64(url: string) {
+  /**
+   * Fetches the image from the given url and returns it as base 64 buffer
+   * @param {string} url
+   * @returns
+   */
+  private async _fetchImageAsBase64(url: string) {
     const imgUrl = url;
     const fetchedImage = await fetch(imgUrl);
     const imgBuffer = await fetchedImage.arrayBuffer();
