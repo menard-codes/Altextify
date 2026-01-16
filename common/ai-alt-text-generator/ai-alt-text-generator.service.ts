@@ -1,5 +1,8 @@
-import { type FetchResponseBody } from "@shopify/admin-api-client";
-import type { GetProductIdsQuery } from "app/types/admin.generated";
+import type {
+  GetProductIdsQuery,
+  GetProductImagesQuery,
+  GetShopInfoQuery,
+} from "app/types/admin.generated";
 import { MediaImage } from "app/types/admin.types";
 import { AIService } from "common/ai/ai.service";
 import { GeminiAdapter } from "common/ai/gemini.adapter";
@@ -12,6 +15,8 @@ import {
   GetProductImagesParams,
 } from "graphql/queries/get-product-images.server";
 import { getShopInfo } from "graphql/queries/get-shop.server";
+import { ShopifyGQLClientFatoryParams } from "lib/shopify/shopify-gql-client.server";
+import { runQuery } from "lib/shopify/run-query.server";
 
 export class AIAltTextGeneratorService {
   /**
@@ -19,23 +24,39 @@ export class AIAltTextGeneratorService {
    * fetches their images, then generate alt texts for each of those images.
    * @param {GetProductIdsParams} getProductIdsParams
    */
-  async bulkGenerateProductImageAltTexts(
-    getProductIdsParams: GetProductIdsParams,
-  ) {
-    let paginatedProductIds: FetchResponseBody<GetProductIdsQuery>;
+  async bulkGenerateProductImageAltTexts({
+    getProductIdsParams,
+    gqlClientFactoryParams,
+  }: {
+    getProductIdsParams: GetProductIdsParams;
+    gqlClientFactoryParams: ShopifyGQLClientFatoryParams;
+  }) {
+    let paginatedProductIds: GetProductIdsQuery | undefined = undefined;
     let imgsWithGeneratedAltText: { id: string; altText: string }[] = [];
 
     do {
-      const productIdsResponse = await getProductIds(getProductIdsParams);
-      paginatedProductIds = await productIdsResponse.json();
+      paginatedProductIds = await runQuery<GetProductIdsQuery>({
+        gqlClientParams: gqlClientFactoryParams,
+        query: getProductIds,
+        variables: getProductIdsParams,
+      });
+
+      if (
+        !paginatedProductIds ||
+        paginatedProductIds.products.edges.length === 0
+      ) {
+        // TODO: Better logger
+        console.info("No product/s found");
+        return;
+      }
 
       // Get all the images associated for each product and generate an alt text for them
-      for (const { node } of paginatedProductIds.data!.products.edges) {
+      for (const { node } of paginatedProductIds.products.edges) {
         const productImagesWithGeneratedAltTexts =
           await this.generateProductImageAltTexts({
-            gql: getProductIdsParams.gql,
-            params: {
-              id: node.id,
+            gqlClientFactoryParams,
+            getProductImagesParams: {
+              productId: node.id,
             },
           });
 
@@ -44,7 +65,7 @@ export class AIAltTextGeneratorService {
           ...productImagesWithGeneratedAltTexts,
         ];
       }
-    } while (paginatedProductIds.data?.products.pageInfo.hasNextPage);
+    } while (paginatedProductIds?.products.pageInfo.hasNextPage);
 
     return imgsWithGeneratedAltText;
   }
@@ -56,19 +77,26 @@ export class AIAltTextGeneratorService {
    * @param {GetProductImagesParams} getProductImagesParams
    * @returns
    */
-  async generateProductImageAltTexts(
-    getProductImagesParams: GetProductImagesParams,
-  ) {
-    const shopInfoResponse = await getShopInfo(getProductImagesParams.gql);
-    const shopInfo = await shopInfoResponse.json();
+  async generateProductImageAltTexts({
+    getProductImagesParams,
+    gqlClientFactoryParams,
+  }: {
+    getProductImagesParams: GetProductImagesParams;
+    gqlClientFactoryParams: ShopifyGQLClientFatoryParams;
+  }) {
+    const shopInfo = await runQuery<GetShopInfoQuery>({
+      gqlClientParams: gqlClientFactoryParams,
+      query: getShopInfo,
+    });
 
-    const productImagesResponse = await getProductImages(
-      getProductImagesParams,
-    );
-    const { data } = await productImagesResponse.json();
+    const productImagesData = await runQuery<GetProductImagesQuery>({
+      gqlClientParams: gqlClientFactoryParams,
+      query: getProductImages,
+      variables: getProductImagesParams,
+    });
 
     // flatten data (variants media & product media)
-    const product = data?.product;
+    const product = productImagesData?.product;
     const variants = product?.variants.edges.map(({ node }) => ({
       ...node,
       media: node.media.edges.map(({ node: { id } }) => id),
@@ -98,7 +126,7 @@ export class AIAltTextGeneratorService {
         productContext: {
           title: product?.title ?? "",
           description: product?.descriptionHtml,
-          shop: shopInfo.data?.shop.name ?? "",
+          shop: shopInfo?.shop.name ?? "",
           variant: variantContext ? variantContext.selectedOptions : undefined,
         },
       });

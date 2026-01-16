@@ -6,50 +6,60 @@ import { GraphQLClient } from "node_modules/@shopify/shopify-app-react-router/di
 import { AdminOperations } from "@shopify/admin-api-client";
 
 type ReactRouterGQLClientParams = {
-    type: 'react-router';
-    request: Request;
+  type: "react-router";
+  request: Request;
 };
 
 type NodeGQLClientParams = {
-    type: 'node';
-    shop: string;
+  type: "node";
+  shop: string;
 };
 
-export async function shopifyGQLClientFactory(params: ReactRouterGQLClientParams): Promise<GraphQLClient<AdminOperations>>
-export async function shopifyGQLClientFactory(params: NodeGQLClientParams): Promise<GraphqlClient['request']>
-export async function shopifyGQLClientFactory(params: ReactRouterGQLClientParams | NodeGQLClientParams) {
-    switch (params.type) {
-        case 'react-router': {
-            const { admin } = await authenticate.admin(params.request);
-            return admin.graphql;
-        }
-        case 'node': {
-            const session = await prisma.session.findFirst({
-                where: {
-                    shop: params.shop,
-                    isOnline: false, // TODO: Check this
-                }
-            });
+export type ShopifyGQLClientFatoryParams =
+  | ReactRouterGQLClientParams
+  | NodeGQLClientParams;
 
-            if (!session) {
-                // This should be caught as 401 Unauthorized error
-                throw new Error('Session not found.');
-            }
-
-            const gqlClient = new shopifyNode.clients.Graphql({
-                session: new Session({
-                    // TODO: Test
-                    id: session.id,
-                    shop: session.shop,
-                    state: session.state,
-                    isOnline: session.isOnline,
-                    accessToken: session.accessToken
-                })
-            });
-            return gqlClient.request;
-        }
-        default: {
-            throw new Error('Unknown GQL client type');
-        }
+export async function shopifyGQLClientFactory(
+  params: ReactRouterGQLClientParams,
+): Promise<GraphQLClient<AdminOperations>>;
+export async function shopifyGQLClientFactory(
+  params: NodeGQLClientParams,
+): Promise<GraphqlClient["request"]>;
+export async function shopifyGQLClientFactory(
+  params: ShopifyGQLClientFatoryParams,
+) {
+  switch (params.type) {
+    case "react-router": {
+      const { admin } = await authenticate.admin(params.request);
+      return admin.graphql;
     }
+    case "node": {
+      const session = await prisma.session.findFirst({
+        where: {
+          shop: params.shop,
+          isOnline: false, // TODO: Check this
+        },
+      });
+
+      if (!session) {
+        // This should be caught as 401 Unauthorized error
+        throw new Error("Session not found.");
+      }
+
+      const gqlClient = new shopifyNode.clients.Graphql({
+        session: new Session({
+          // TODO: Test
+          id: session.id,
+          shop: session.shop,
+          state: session.state,
+          isOnline: session.isOnline,
+          accessToken: session.accessToken,
+        }),
+      });
+      return gqlClient.request;
+    }
+    default: {
+      throw new Error("Unknown GQL client type");
+    }
+  }
 }
