@@ -1,7 +1,7 @@
 import { FileUpdateInput } from "app/types/admin.types";
 
 export type BulkUpdateImageAltParams = {
-    images: Pick<FileUpdateInput, "id" | "alt">[];
+  images: Pick<FileUpdateInput, "id" | "alt">[];
 };
 
 export const bulkUpdateImageAlt = `#graphql

@@ -1,4 +1,3 @@
-
 export const getShopInfo = `#graphql
     query getShopInfo {
         shop {
@@ -6,4 +5,4 @@ export const getShopInfo = `#graphql
             name
         }
     }
-`
+`;

@@ -28,17 +28,21 @@ export class AIAltTextGeneratorService {
     getProductIdsParams,
     gqlClientFactoryParams,
   }: {
-    getProductIdsParams: GetProductIdsParams;
+    getProductIdsParams?: GetProductIdsParams;
     gqlClientFactoryParams: ShopifyGQLClientFatoryParams;
   }) {
+    let imgsWithGeneratedAltText: { id: string; alt: string }[] = [];
+    const pagination: GetProductIdsParams = getProductIdsParams ?? {
+      first: 50,
+    };
+
     let paginatedProductIds: GetProductIdsQuery | undefined = undefined;
-    let imgsWithGeneratedAltText: { id: string; altText: string }[] = [];
 
     do {
       paginatedProductIds = await runQuery<GetProductIdsQuery>({
         gqlClientParams: gqlClientFactoryParams,
         query: getProductIds,
-        variables: getProductIdsParams,
+        variables: pagination,
       });
 
       if (
@@ -47,7 +51,7 @@ export class AIAltTextGeneratorService {
       ) {
         // TODO: Better logger
         console.info("No product/s found");
-        return;
+        return imgsWithGeneratedAltText;
       }
 
       // Get all the images associated for each product and generate an alt text for them
@@ -65,6 +69,10 @@ export class AIAltTextGeneratorService {
           ...productImagesWithGeneratedAltTexts,
         ];
       }
+
+      // adjust pagination
+      pagination.after = paginatedProductIds.products.pageInfo
+        .endCursor as string;
     } while (paginatedProductIds?.products.pageInfo.hasNextPage);
 
     return imgsWithGeneratedAltText;
@@ -108,7 +116,7 @@ export class AIAltTextGeneratorService {
 
     // This will contain the product images and their generated alt texts,
     // and will be return by this method
-    const imgsWithGeneratedAltText: { id: string; altText: string }[] = [];
+    const imgsWithGeneratedAltText: { id: string; alt: string }[] = [];
 
     // generate alt texts for all its images
     for (const productMedia of productMediaArray) {
@@ -133,7 +141,7 @@ export class AIAltTextGeneratorService {
 
       imgsWithGeneratedAltText.push({
         id: productMedia.id,
-        altText: generatedAltText,
+        alt: generatedAltText,
       });
     }
 
@@ -176,6 +184,8 @@ export class AIAltTextGeneratorService {
             This is a product image for the e-commerce shop "${productContext.shop}".
             Generate a WCAG-compliant alt text for it.
             Make sure to use the <product-context> provided.
+            Generate the alt text in plain text, DON'T wrap it in any XML tags like "<alt-text>"
+            or something similar. AVOID any special characters unless necessary.
         </task>
         <product-context>
             <product-name>${productContext.title}</product-name>

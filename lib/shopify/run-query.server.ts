@@ -16,7 +16,7 @@ export async function runQuery<T>({
   switch (gqlClientParams.type) {
     case "node": {
       const client = await shopifyGQLClientFactory(gqlClientParams);
-      const res = await client<T>(query, { variables });
+      const res = await client.request<T>(query, { variables });
       return res.data;
     }
     case "react-router": {

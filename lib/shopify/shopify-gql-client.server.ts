@@ -24,14 +24,14 @@ export async function shopifyGQLClientFactory(
 ): Promise<GraphQLClient<AdminOperations>>;
 export async function shopifyGQLClientFactory(
   params: NodeGQLClientParams,
-): Promise<GraphqlClient["request"]>;
+): Promise<GraphqlClient>;
 export async function shopifyGQLClientFactory(
   params: ShopifyGQLClientFatoryParams,
 ) {
   switch (params.type) {
     case "react-router": {
       const { admin } = await authenticate.admin(params.request);
-      return admin.graphql;
+      return admin.graphql.bind(admin.graphql);
     }
     case "node": {
       const session = await prisma.session.findFirst({
@@ -56,7 +56,7 @@ export async function shopifyGQLClientFactory(
           accessToken: session.accessToken,
         }),
       });
-      return gqlClient.request;
+      return gqlClient;
     }
     default: {
       throw new Error("Unknown GQL client type");
