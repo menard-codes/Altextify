@@ -1,7 +1,4 @@
 services:
-    # TODO: Setup app image (Use the provided Dockerfile)
-
-    # TODO: Setup docker-compose.prod.yml to override db
     db:
         image: postgres
         restart: always
@@ -13,6 +10,8 @@ services:
             POSTGRES_USER: ${DB_USER}
             POSTGRES_PASSWORD: ${DB_PASSWORD}
             POSTGRES_DB: ${DB_DEFAULT_DATABASE}
+        volumes:
+            - postgres_data:/var/lib/postgresql
     redis:
         image: redis:8-alpine
         restart: always
@@ -23,4 +22,5 @@ services:
             - redis_data:/data
 
 volumes:
+    postgres_data:
     redis_data:
