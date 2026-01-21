@@ -1,6 +1,8 @@
 import { authenticate } from "app/shopify.server";
+import { BulkUpdateImageAltTextsProgress } from "background-jobs/processors/alt-text-gen/types";
+import { StepStatus } from "background-jobs/processors/types/shared";
 import { bulkAltTextGenQueue } from "background-jobs/queues/alt-text-generation.queue";
-import { useEffect } from "react";
+import { ReactElement, useEffect } from "react";
 import {
   data,
   LoaderFunctionArgs,
@@ -19,7 +21,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   }
 
   const state = await job.getState();
-  const progress = job.progress;
+  const progress = job.progress as BulkUpdateImageAltTextsProgress;
   return data({
     jobId,
     state,
@@ -43,16 +45,49 @@ export default function Page() {
     return () => clearInterval(interval);
   }, [state, revalidator]);
 
+  const statusBadge: Record<
+    typeof state,
+    "info" | "neutral" | "warning" | "success" | "critical" | "auto" | "caution"
+  > = {
+    waiting: "neutral",
+    "waiting-children": "neutral",
+    delayed: "warning",
+    prioritized: "info",
+    active: "info",
+    completed: "success",
+    failed: "critical",
+    unknown: "caution",
+  };
+  const statusIcon: Record<StepStatus, ReactElement> = {
+    Pending: <s-icon tone="neutral" type="clock-revert"></s-icon>,
+    "In Progress": <s-icon tone="info" type="replay"></s-icon>,
+    Completed: <s-icon tone="success" type="check-circle-filled"></s-icon>,
+    Cancelled: <s-icon tone="caution" type="x"></s-icon>,
+    Failed: <s-icon tone="critical" type="alert-octagon-filled"></s-icon>,
+  };
+
+  const JobStep = ({ step, status }: { step: string; status: StepStatus }) => (
+    <div>
+      <s-paragraph>
+        {statusIcon[status]}
+        {step}
+      </s-paragraph>
+    </div>
+  );
+  const JobStepsProgress = Object.keys(progress)
+    .map((i) => +i)
+    .sort((a, b) => a - b)
+    .map((step) => {
+      const { status, stepName } = progress[step];
+      return <JobStep key={step} status={status} step={stepName} />;
+    });
+
   return (
     <div>
       <h1>Job ID: {jobId}</h1>
-      <p>
-        {/* TODO: Progress needs further configuration as it always display 0 */}
-        <strong>Progress:</strong> {progress.toString()}
-      </p>
-      <p>
-        <strong>Status: {state}</strong>
-      </p>
+      <s-badge tone={statusBadge[state]}>{state}</s-badge>
+      <h2>Progress</h2>
+      {JobStepsProgress}
     </div>
   );
 }

@@ -37,7 +37,7 @@ export async function shopifyGQLClientFactory(
       const session = await prisma.session.findFirst({
         where: {
           shop: params.shop,
-          isOnline: false, // TODO: Check this
+          isOnline: false,
         },
       });
 
@@ -48,12 +48,12 @@ export async function shopifyGQLClientFactory(
 
       const gqlClient = new shopifyNode.clients.Graphql({
         session: new Session({
-          // TODO: Test
           id: session.id,
           shop: session.shop,
           state: session.state,
           isOnline: session.isOnline,
           accessToken: session.accessToken,
+          scope: session.scope ?? undefined,
         }),
       });
       return gqlClient;

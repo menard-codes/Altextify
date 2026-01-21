@@ -1,6 +1,6 @@
 import { type Job, Worker } from "bullmq";
 import { BULK_ALT_TEXT_GENERATION, MAILER } from "../constants/queue-names";
-import { AltTextGenProcessor } from "../processors/alt-text-gen.processor";
+import { AltTextGenProcessor } from "../processors/alt-text-gen/alt-text-gen.processor";
 import { AIAltTextGeneratorService } from "common/ai-alt-text-generator/ai-alt-text-generator.service";
 import { connection } from "../connection";
 import { mailerQueue } from "background-jobs/queues/mailer.queue";
@@ -13,9 +13,11 @@ import { runQuery } from "lib/shopify/run-query.server";
 import { getShopInfo } from "graphql/queries/get-shop.server";
 import { GetShopInfoQuery } from "app/types/admin.generated";
 
+export type BulkAltTextGenJobData = { shop: string };
+
 export const bulkAltTextGenWorker = new Worker(
   BULK_ALT_TEXT_GENERATION,
-  async (job: Job<{ shop: string }>) => {
+  async (job: Job<BulkAltTextGenJobData>) => {
     const altTextGenProcessor = new AltTextGenProcessor();
     await altTextGenProcessor.bulkUpdateImageAltTexts({
       job,
@@ -26,9 +28,7 @@ export const bulkAltTextGenWorker = new Worker(
 );
 
 // ####################
-// Queue Events
-
-// TODO: Use QueueEvents
+// Worker Events
 
 bulkAltTextGenWorker.on("ready", () => {
   console.log(

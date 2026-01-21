@@ -1,6 +1,6 @@
 import { connection } from "background-jobs/connection";
 import { MAILER } from "background-jobs/constants/queue-names";
-import { NotificationMailerProcessor } from "background-jobs/processors/notification-mailer.processor";
+import { NotificationMailerProcessor } from "background-jobs/processors/notification-mailer/notification-mailer.processor";
 import { Job, Worker } from "bullmq";
 import { SendMailParams } from "common/mailer/strategies/IMailer";
 
@@ -57,9 +57,7 @@ export const mailerWorker = new Worker(
 );
 
 // ####################
-// Queue Events
-
-// TODO: Use QueueEvents
+// Worker Events
 
 mailerWorker.on("ready", () => {
   console.log(`${MAILER}: Worker is ready and waiting for jobs`);
