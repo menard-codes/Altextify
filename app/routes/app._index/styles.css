@@ -1,0 +1,11 @@
+@keyframes slideRight {
+  0% {
+    width: 0;
+  }
+  50% {
+    width: 75%;
+  }
+  100% {
+    width: 0;
+  }
+}
