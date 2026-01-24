@@ -1,5 +1,9 @@
 import { type Job, Worker } from "bullmq";
-import { BULK_ALT_TEXT_GENERATION, MAILER } from "../constants/queue-names";
+import {
+  ALT_TEXT_SCAN,
+  BULK_ALT_TEXT_GENERATION,
+  MAILER,
+} from "../constants/queue-names";
 import { AltTextGenProcessor } from "../processors/alt-text-gen/alt-text-gen.processor";
 import { AIAltTextGeneratorService } from "common/ai-alt-text-generator/ai-alt-text-generator.service";
 import { connection } from "../connection";
@@ -12,6 +16,8 @@ import {
 import { runQuery } from "lib/shopify/run-query.server";
 import { getShopInfo } from "graphql/queries/get-shop.server";
 import { GetShopInfoQuery } from "app/types/admin.generated";
+import { getScanJobId } from "./alt-text-scan.worker";
+import { altTextScanQueue } from "background-jobs/queues/alt-text-scan.queue";
 
 export type BulkAltTextGenJobData = { shop: string };
 
@@ -30,6 +36,16 @@ export const bulkAltTextGenWorker = new Worker(
 // ####################
 // Worker Events
 
+async function reScan(shop: string) {
+  const scanJobId = getScanJobId(shop);
+  const scanJob = await altTextScanQueue.getJob(scanJobId);
+  const status = await scanJob?.getState();
+  if (status === "completed" || status === "failed") {
+    await scanJob?.remove();
+  }
+  await altTextScanQueue.add(ALT_TEXT_SCAN, { shop }, { jobId: scanJobId });
+}
+
 bulkAltTextGenWorker.on("ready", () => {
   console.log(
     `${BULK_ALT_TEXT_GENERATION}: Worker is ready and waiting for jobs`,
@@ -42,6 +58,10 @@ bulkAltTextGenWorker.on("active", (job) => {
 
 bulkAltTextGenWorker.on("completed", async (job) => {
   console.log(`${BULK_ALT_TEXT_GENERATION}: Job ${job.id} completed`);
+
+  // Re-scan and send notifications
+
+  await reScan(job.data.shop);
 
   const shopInfo = await runQuery<GetShopInfoQuery>({
     gqlClientParams: {
@@ -68,6 +88,10 @@ bulkAltTextGenWorker.on("failed", async (job, err) => {
   console.log(`${BULK_ALT_TEXT_GENERATION}: Job ${job?.id} failed:`, err);
 
   if (!job) return;
+
+  // Re-scan and send notifications
+
+  await reScan(job.data.shop);
 
   const shopInfo = await runQuery<GetShopInfoQuery>({
     gqlClientParams: {
