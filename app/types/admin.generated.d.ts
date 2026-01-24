@@ -61,6 +61,16 @@ export type GetProductImagesQuery = { product?: AdminTypes.Maybe<(
         ) }> } }
   )> };
 
+export type GetShopImagesQueryVariables = AdminTypes.Exact<{
+  first?: AdminTypes.InputMaybe<AdminTypes.Scalars['Int']['input']>;
+  last?: AdminTypes.InputMaybe<AdminTypes.Scalars['Int']['input']>;
+  before?: AdminTypes.InputMaybe<AdminTypes.Scalars['String']['input']>;
+  after?: AdminTypes.InputMaybe<AdminTypes.Scalars['String']['input']>;
+}>;
+
+
+export type GetShopImagesQuery = { files: { edges: Array<{ node: Pick<AdminTypes.ExternalVideo, 'id' | 'alt'> | Pick<AdminTypes.GenericFile, 'id' | 'alt'> | Pick<AdminTypes.MediaImage, 'id' | 'alt'> | Pick<AdminTypes.Model3d, 'id' | 'alt'> | Pick<AdminTypes.Video, 'id' | 'alt'> }>, pageInfo: Pick<AdminTypes.PageInfo, 'hasNextPage' | 'hasPreviousPage' | 'startCursor' | 'endCursor'> } };
+
 export type GetShopInfoQueryVariables = AdminTypes.Exact<{ [key: string]: never; }>;
 
 
@@ -69,6 +79,7 @@ export type GetShopInfoQuery = { shop: Pick<AdminTypes.Shop, 'email' | 'name'> }
 interface GeneratedQueryTypes {
   "#graphql\n    query getProductIds(\n        $first: Int\n        $last: Int\n        $before: String\n        $after: String\n        $search: String\n    ) {\n        products(\n            first: $first\n            last: $last\n            before: $before\n            after: $after\n            query: $search\n        ) {\n            edges {\n                node {\n                    id\n                }\n            }\n            pageInfo {\n                startCursor\n                hasNextPage\n                endCursor\n                hasPreviousPage\n            }\n        }\n    }\n": {return: GetProductIdsQuery, variables: GetProductIdsQueryVariables},
   "#graphql\n    query getProductImages(\n        $productId: ID!\n    ) {\n        product(id: $productId) {\n            id\n            title\n            descriptionHtml\n            # Assuming that, realistically, all stores will not exceed\n            # the maximum number of variants: 250 (no pagination intended for this use case)\n            variants(first: 250) {\n                edges {\n                    node {\n                        selectedOptions {\n                            name\n                            value\n                        }\n                        # same with this one\n                        media(first: 250) {\n                            edges {\n                                node {\n                                    id\n                                }\n                            }\n                        }\n                    }\n                }\n            }\n            # Assuming a product won't exceed 250 media files associated with it\n            media(\n                first: 250,\n                query: \"query: media_type=IMAGE\"\n            ) {\n                edges {\n                    node {\n                        id\n                        mediaContentType\n                        ... on MediaImage {\n                            mimeType\n                        }\n                        preview {\n                            image {\n                                url\n                            }\n                        }\n                    }\n                }\n            }\n        }\n    }\n": {return: GetProductImagesQuery, variables: GetProductImagesQueryVariables},
+  "#graphql\n    query getShopImages(\n        $first: Int\n        $last: Int\n        $before: String\n        $after: String\n    ) {\n        files(\n            first: $first,\n            last: $last,\n            before: $before,\n            after: $after\n        ) {\n            edges {\n                node {\n                    id\n                    alt\n                }\n            }\n            pageInfo {\n                hasNextPage\n                hasPreviousPage\n                startCursor\n                endCursor\n            }\n        }\n    }\n": {return: GetShopImagesQuery, variables: GetShopImagesQueryVariables},
   "#graphql\n    query getShopInfo {\n        shop {\n            email\n            name\n        }\n    }\n": {return: GetShopInfoQuery, variables: GetShopInfoQueryVariables},
 }
 
