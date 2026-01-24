@@ -1,7 +1,7 @@
 import { useFetcher, useNavigate, useNavigation } from "react-router";
 import { action } from "../../../api.bulk-generate-alt/route";
 import { useCallback, useEffect } from "react";
-import { bulkGenerateAltTexts } from "../../services/scan.api";
+import { bulkGenerateAltTexts } from "../../services/alt-generate.api";
 
 type ScanActionsParams = {
   isPostingScanJob: boolean;
