@@ -1,7 +1,10 @@
 import type { LoaderFunctionArgs } from "react-router";
 import { data, useLoaderData } from "react-router";
 import { authenticate } from "app/shopify.server";
-import { getScanJobId } from "background-jobs/workers/alt-text-scan.worker";
+import {
+  AltTextScan,
+  getScanJobId,
+} from "background-jobs/workers/alt-text-scan.worker";
 import { altTextScanQueue } from "background-jobs/queues/alt-text-scan.queue";
 import prisma from "app/db.server";
 import Header from "./components/Header.component";
@@ -12,6 +15,8 @@ import DashboardLoader from "./components/DashboardLoader.component";
 import "./styles.css";
 import { useScan } from "./hooks/useScan";
 import ScanReport from "./components/ScanReport";
+import { ALT_TEXT_SCAN } from "background-jobs/constants/queue-names";
+import { Job } from "bullmq";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -27,10 +32,25 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     },
   });
 
+  const status = await scanJob?.getState();
+
+  // If there's a completed scan job in record and the database is out-of-sync, re-scan
+  let newScanJob: Job<AltTextScan> | null = null;
+  if (status === "completed" && !scanReport) {
+    await scanJob?.remove();
+    newScanJob = await altTextScanQueue.add(
+      ALT_TEXT_SCAN,
+      {
+        shop: session.shop,
+      },
+      { jobId: scanJobId },
+    );
+  }
+
   return data({
     scan: {
       job: {
-        status: await scanJob?.getState(),
+        status: newScanJob ? await newScanJob.getState() : status,
       },
       report: scanReport,
     },
