@@ -40,3 +40,36 @@ model ScanReport {
   imagesWithAltText Int
   lastScan          DateTime @default(now())
 }
+
+model Job {
+  id          String    @id @default(cuid())
+  shop        String
+  status      JobStatus @default(waiting)
+  createdAt   DateTime  @default(now())
+  processedOn DateTime?
+  finishedOn  DateTime?
+
+  generatedAltTexts GeneratedAltText[]
+}
+
+// ! NOTE: This should be-matching bullmq's job state types.
+// ! This must be updated whenever bullmq updates job state values
+enum JobStatus {
+  unknown
+  waiting
+  waitingChildren
+  active
+  delayed
+  prioritized
+  completed
+  failed
+}
+
+model GeneratedAltText {
+  id      String @id @default(cuid())
+  imageId String
+  altText String
+
+  job   Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  jobId String
+}
