@@ -28,8 +28,10 @@ export default function ScanActions({
     bulkGenerateAltTexts({ fetcher: fetcher });
   }, [fetcher]);
 
-  const isBulkGenerating =
-    fetcher.state !== "idle" || navigation.state !== "idle";
+  const isNavigatingToNewJob =
+    navigation.location?.pathname === `/app/jobs/${fetcher.data?.job.id}` &&
+    navigation.state !== "idle";
+  const isBulkGenerating = fetcher.state !== "idle" || isNavigatingToNewJob;
 
   return (
     <div className="mt-6 flex flex-col gap-3 sm:flex-row">
