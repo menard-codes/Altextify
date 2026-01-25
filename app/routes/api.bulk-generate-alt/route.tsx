@@ -1,3 +1,4 @@
+import prisma from "app/db.server";
 import { authenticate } from "app/shopify.server";
 import { BULK_ALT_TEXT_GENERATION } from "background-jobs/constants/queue-names";
 import { bulkAltTextGenQueue } from "background-jobs/queues/alt-text-generation.queue";
@@ -11,20 +12,24 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   // TODO: This could be improved: option to only generate alt texts to those missing alts
-  const jobId = crypto.randomUUID();
+  const jobRecord = await prisma.job.create({
+    data: {
+      shop: session.shop,
+    },
+  });
   await bulkAltTextGenQueue.add(
     BULK_ALT_TEXT_GENERATION,
     {
       shop: session.shop,
     },
     {
-      jobId,
+      jobId: jobRecord.id,
     },
   );
 
   return data({
     job: {
-      id: jobId,
+      id: jobRecord.id,
     },
   });
 }
