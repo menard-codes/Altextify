@@ -18,6 +18,7 @@ import { getShopInfo } from "graphql/queries/get-shop.server";
 import { GetShopInfoQuery } from "app/types/admin.generated";
 import { getScanJobId } from "./alt-text-scan.worker";
 import { altTextScanQueue } from "background-jobs/queues/alt-text-scan.queue";
+import prisma from "app/db.server";
 
 export type BulkAltTextGenJobData = { shop: string };
 
@@ -52,8 +53,19 @@ bulkAltTextGenWorker.on("ready", () => {
   );
 });
 
-bulkAltTextGenWorker.on("active", (job) => {
+bulkAltTextGenWorker.on("active", async (job) => {
   console.log(`${BULK_ALT_TEXT_GENERATION}: Processing job ${job.id}`);
+
+  const status = await job.getState();
+  await prisma.job.update({
+    where: {
+      id: job.id,
+    },
+    data: {
+      status: status === "waiting-children" ? "waitingChildren" : status,
+      processedOn: job.processedOn ? new Date(job.processedOn) : null,
+    },
+  });
 });
 
 bulkAltTextGenWorker.on("completed", async (job) => {
@@ -62,6 +74,17 @@ bulkAltTextGenWorker.on("completed", async (job) => {
   // Re-scan and send notifications
 
   await reScan(job.data.shop);
+
+  const status = await job.getState();
+  await prisma.job.update({
+    where: {
+      id: job.id,
+    },
+    data: {
+      status: status === "waiting-children" ? "waitingChildren" : status,
+      finishedOn: job.finishedOn ? new Date(job.finishedOn) : null,
+    },
+  });
 
   const shopInfo = await runQuery<GetShopInfoQuery>({
     gqlClientParams: {
@@ -92,6 +115,17 @@ bulkAltTextGenWorker.on("failed", async (job, err) => {
   // Re-scan and send notifications
 
   await reScan(job.data.shop);
+
+  const status = await job.getState();
+  await prisma.job.update({
+    where: {
+      id: job.id,
+    },
+    data: {
+      status: status === "waiting-children" ? "waitingChildren" : status,
+      finishedOn: job.finishedOn ? new Date(job.finishedOn) : null,
+    },
+  });
 
   const shopInfo = await runQuery<GetShopInfoQuery>({
     gqlClientParams: {

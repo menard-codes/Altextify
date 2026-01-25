@@ -7,6 +7,8 @@ import {
 import { shopifyGQLClientFactory } from "lib/shopify/shopify-gql-client.server";
 import { sleep } from "utils/utils";
 import { BulkUpdateImageAltTextsProgress } from "./types";
+import prisma from "app/db.server";
+import { Prisma } from "@prisma/client";
 
 export class AltTextGenProcessor {
   async bulkUpdateImageAltTexts({
@@ -62,6 +64,19 @@ export class AltTextGenProcessor {
     job.updateProgress(jobProgress);
 
     try {
+      // Save to database first
+      await prisma.generatedAltText.createMany({
+        data: generatedAltTexts.map(
+          ({ id, alt }) =>
+            ({
+              jobId: job.id as string,
+              imageId: id,
+              altText: alt,
+            }) as Prisma.GeneratedAltTextCreateManyInput,
+        ),
+      });
+
+      // TODO: Improvement - allow users to configure if they want to auto-save
       // Bulk update the alt text of images from generatedAltTexts using the admin API
       const client = await shopifyGQLClientFactory({
         type: "node",
