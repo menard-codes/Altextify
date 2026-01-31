@@ -10,6 +10,9 @@ export default function SkeletonLoader() {
           <div className="h-4 w-16 animate-pulse rounded bg-muted"></div>
         </td>
         <td className="px-6 py-4">
+          <div className="h-4 w-16 animate-pulse rounded bg-muted"></div>
+        </td>
+        <td className="px-6 py-4">
           <div className="h-8 w-24 animate-pulse rounded-lg bg-muted"></div>
         </td>
         <td className="px-6 py-4">

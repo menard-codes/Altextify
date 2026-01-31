@@ -1,9 +1,5 @@
 import { type Job, Worker } from "bullmq";
-import {
-  ALT_TEXT_SCAN,
-  BULK_ALT_TEXT_GENERATION,
-  MAILER,
-} from "../constants/queue-names";
+import { BULK_ALT_TEXT_GENERATION, MAILER } from "../constants/queue-names";
 import { AltTextGenProcessor } from "../processors/alt-text-gen/alt-text-gen.processor";
 import { AIAltTextGeneratorService } from "common/ai-alt-text-generator/ai-alt-text-generator.service";
 import { connection } from "../connection";
@@ -16,9 +12,8 @@ import {
 import { runQuery } from "lib/shopify/run-query.server";
 import { getShopInfo } from "graphql/queries/get-shop.server";
 import { GetShopInfoQuery } from "app/types/admin.generated";
-import { getScanJobId } from "./alt-text-scan.worker";
-import { altTextScanQueue } from "background-jobs/queues/alt-text-scan.queue";
 import prisma from "app/db.server";
+import { reScan } from "./alt-text-scan.worker";
 
 export type BulkAltTextGenJobData = { shop: string };
 
@@ -36,16 +31,6 @@ export const bulkAltTextGenWorker = new Worker(
 
 // ####################
 // Worker Events
-
-async function reScan(shop: string) {
-  const scanJobId = getScanJobId(shop);
-  const scanJob = await altTextScanQueue.getJob(scanJobId);
-  const status = await scanJob?.getState();
-  if (status === "completed" || status === "failed") {
-    await scanJob?.remove();
-  }
-  await altTextScanQueue.add(ALT_TEXT_SCAN, { shop }, { jobId: scanJobId });
-}
 
 bulkAltTextGenWorker.on("ready", () => {
   console.log(

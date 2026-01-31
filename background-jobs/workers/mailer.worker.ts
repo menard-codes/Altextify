@@ -7,6 +7,8 @@ import { SendMailParams } from "common/mailer/strategies/IMailer";
 export enum MailerType {
   SUCCESS_BULK_ALT_GEN = "success-bulk-alt-gen",
   FAILED_BULK_ALT_GEN = "failed-bulk-alt-gen",
+  SUCCESS_BULK_SAVE = "success-bulk-save",
+  FAILED_BULK_SAVE = "failed-bulk-save",
 }
 
 type MailParams = {
@@ -23,9 +25,23 @@ export type FailedBulkAltGenMailParams = MailParams & {
   mailerParams: Pick<SendMailParams, "sendTo" | "cc" | "bcc">;
 };
 
+export type SuccessBulkSaveMailParams = MailParams & {
+  type: MailerType.SUCCESS_BULK_SAVE;
+  mailerParams: Pick<SendMailParams, "sendTo" | "cc" | "bcc">;
+  jobPageURL: string;
+};
+
+export type FailedBulkSaveMailParams = MailParams & {
+  type: MailerType.FAILED_BULK_SAVE;
+  mailerParams: Pick<SendMailParams, "sendTo" | "cc" | "bcc">;
+  jobPageURL: string;
+};
+
 type MailerParamsUnionType =
   | SuccessBulkAltGenMailParams
-  | FailedBulkAltGenMailParams;
+  | FailedBulkAltGenMailParams
+  | SuccessBulkSaveMailParams
+  | FailedBulkSaveMailParams;
 
 export const mailerWorker = new Worker(
   MAILER,
@@ -45,6 +61,22 @@ export const mailerWorker = new Worker(
         notifMailerProcessor.sendJobFailed({
           shop: data.shop,
           mailerParams: data.mailerParams,
+        });
+        break;
+      }
+      case MailerType.SUCCESS_BULK_SAVE: {
+        notifMailerProcessor.sendBulkSaveSuccess({
+          shop: data.shop,
+          mailerParams: data.mailerParams,
+          jobPageURL: data.jobPageURL,
+        });
+        break;
+      }
+      case MailerType.FAILED_BULK_SAVE: {
+        notifMailerProcessor.sendBulkSaveFailed({
+          shop: data.shop,
+          mailerParams: data.mailerParams,
+          jobPageURL: data.jobPageURL,
         });
         break;
       }

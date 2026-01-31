@@ -10,7 +10,6 @@ function getConfig() {
         apiType: ApiType.Admin,
         apiVersion: ApiVersion.October25,
         documents: [
-          "./app/**/*.{js,ts,jsx,tsx}",
           "./app/.server/**/*.{js,ts,jsx,tsx}",
           "./graphql/**/*.{js,ts}",
         ],

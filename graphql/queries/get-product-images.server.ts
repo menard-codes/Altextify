@@ -1,5 +1,4 @@
-
-export type GetProductImagesParams = { productId: string }
+export type GetProductImagesParams = { productId: string };
 
 export const getProductImages = `#graphql
     query getProductImages(
@@ -11,9 +10,11 @@ export const getProductImages = `#graphql
             descriptionHtml
             # Assuming that, realistically, all stores will not exceed
             # the maximum number of variants: 250 (no pagination intended for this use case)
+            hasOnlyDefaultVariant
             variants(first: 250) {
                 edges {
                     node {
+                        id
                         selectedOptions {
                             name
                             value
@@ -23,6 +24,7 @@ export const getProductImages = `#graphql
                             edges {
                                 node {
                                     id
+                                    alt
                                 }
                             }
                         }
@@ -32,11 +34,12 @@ export const getProductImages = `#graphql
             # Assuming a product won't exceed 250 media files associated with it
             media(
                 first: 250,
-                query: "query: media_type=IMAGE"
+                query: "media_type=IMAGE"
             ) {
                 edges {
                     node {
                         id
+                        alt
                         mediaContentType
                         ... on MediaImage {
                             mimeType
@@ -51,4 +54,4 @@ export const getProductImages = `#graphql
             }
         }
     }
-`
+`;

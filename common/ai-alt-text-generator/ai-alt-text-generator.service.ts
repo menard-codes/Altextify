@@ -17,6 +17,8 @@ import {
 import { getShopInfo } from "graphql/queries/get-shop.server";
 import { ShopifyGQLClientFatoryParams } from "lib/shopify/shopify-gql-client.server";
 import { runQuery } from "lib/shopify/run-query.server";
+import { sleep } from "utils/utils";
+import { Prisma } from "@prisma/client";
 
 export class AIAltTextGeneratorService {
   /**
@@ -26,14 +28,20 @@ export class AIAltTextGeneratorService {
    */
   async bulkGenerateProductImageAltTexts({
     getProductIdsParams,
+    onlyGenerateMissingAlt,
     gqlClientFactoryParams,
   }: {
     getProductIdsParams?: GetProductIdsParams;
+    onlyGenerateMissingAlt: boolean;
     gqlClientFactoryParams: ShopifyGQLClientFatoryParams;
   }) {
-    let imgsWithGeneratedAltText: { id: string; alt: string }[] = [];
-    const pagination: GetProductIdsParams = getProductIdsParams ?? {
-      first: 50,
+    let imgsWithGeneratedAltText: Omit<
+      Prisma.GeneratedAltTextCreateInput,
+      "job"
+    >[] = [];
+    const variables: GetProductIdsParams = {
+      ...getProductIdsParams,
+      first: getProductIdsParams?.first ?? 50,
     };
 
     let paginatedProductIds: GetProductIdsQuery | undefined = undefined;
@@ -42,7 +50,7 @@ export class AIAltTextGeneratorService {
       paginatedProductIds = await runQuery<GetProductIdsQuery>({
         gqlClientParams: gqlClientFactoryParams,
         query: getProductIds,
-        variables: pagination,
+        variables,
       });
 
       if (
@@ -62,6 +70,7 @@ export class AIAltTextGeneratorService {
             getProductImagesParams: {
               productId: node.id,
             },
+            onlyGenerateMissingAlt,
           });
 
         imgsWithGeneratedAltText = [
@@ -71,7 +80,7 @@ export class AIAltTextGeneratorService {
       }
 
       // adjust pagination
-      pagination.after = paginatedProductIds.products.pageInfo
+      variables.after = paginatedProductIds.products.pageInfo
         .endCursor as string;
     } while (paginatedProductIds?.products.pageInfo.hasNextPage);
 
@@ -87,9 +96,11 @@ export class AIAltTextGeneratorService {
    */
   async generateProductImageAltTexts({
     getProductImagesParams,
+    onlyGenerateMissingAlt,
     gqlClientFactoryParams,
   }: {
     getProductImagesParams: GetProductImagesParams;
+    onlyGenerateMissingAlt: boolean;
     gqlClientFactoryParams: ShopifyGQLClientFatoryParams;
   }) {
     const shopInfo = await runQuery<GetShopInfoQuery>({
@@ -116,18 +127,24 @@ export class AIAltTextGeneratorService {
 
     // This will contain the product images and their generated alt texts,
     // and will be return by this method
-    const imgsWithGeneratedAltText: { id: string; alt: string }[] = [];
+    const imgsWithGeneratedAltText: Omit<
+      Prisma.GeneratedAltTextCreateInput,
+      "job"
+    >[] = [];
 
     // generate alt texts for all its images
     for (const productMedia of productMediaArray) {
       if (productMedia.mediaContentType !== "IMAGE") continue;
+
+      const imageHasAlt = Boolean(productMedia.alt);
+      if (onlyGenerateMissingAlt && imageHasAlt) continue;
 
       // finds the variant context of the image (if it has), otherwise, undefined
       const variantContext = variants?.find((variant) =>
         variant.media.includes(productMedia.id),
       );
 
-      const generatedAltText = await this._generateProductImageAlt({
+      const generatedAltText = await this.generateProductImageAlt({
         url: productMedia.preview?.image?.url,
         mimeType: (productMedia as Pick<MediaImage, "mimeType">)
           .mimeType as string,
@@ -141,8 +158,17 @@ export class AIAltTextGeneratorService {
 
       imgsWithGeneratedAltText.push({
         id: productMedia.id,
-        alt: generatedAltText,
+        generatedAltText: generatedAltText,
+        originalAltText: productMedia.alt ?? "",
+        url: productMedia.preview?.image?.url,
+        productId: product?.id ?? "",
+        productName: product?.title ?? "",
+        imageId: productMedia.id ?? "",
+        variantId: variantContext?.id,
       });
+
+      // Throttle each request to avoid rate limiting
+      await sleep(2000);
     }
 
     return imgsWithGeneratedAltText;
@@ -152,7 +178,7 @@ export class AIAltTextGeneratorService {
    * Generates an alt text for the given product image
    * @param params
    */
-  private async _generateProductImageAlt({
+  async generateProductImageAlt({
     url,
     mimeType,
     productContext,
@@ -175,7 +201,7 @@ export class AIAltTextGeneratorService {
       model: "gemini-2.5-flash-lite",
       media: [
         {
-          mimeType: mimeType,
+          mimeType,
           base64: imgBase64,
         },
       ],

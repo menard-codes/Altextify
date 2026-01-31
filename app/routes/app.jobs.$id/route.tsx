@@ -1,93 +1,95 @@
 import { authenticate } from "app/shopify.server";
-import { BulkUpdateImageAltTextsProgress } from "background-jobs/processors/alt-text-gen/types";
-import { StepStatus } from "background-jobs/processors/types/shared";
-import { bulkAltTextGenQueue } from "background-jobs/queues/alt-text-generation.queue";
-import { ReactElement, useEffect } from "react";
-import {
-  data,
-  LoaderFunctionArgs,
-  useLoaderData,
-  useRevalidator,
-} from "react-router";
+import { data, LoaderFunctionArgs, useLoaderData } from "react-router";
+import { HttpResponse } from "types/http-response.type";
+import { z } from "zod";
+import Header from "./components/Header.component";
+import JobMetadata from "./components/JobMetadata";
+import Timeline from "./components/Timeline";
+import ProcessedImages from "./components/ProcessedImages";
+import useRefetch from "./hooks/useRefetch";
+import { getJobData } from "./server/get-job-data.server";
+import { getURLSearchParams } from "./server/get-url-search-params.server";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
-  await authenticate.admin(request);
+  const { session } = await authenticate.admin(request);
+  const storeName = session.shop.replace(".myshopify.com", "");
+
+  const searchParams = getURLSearchParams({ request });
+
+  if (searchParams.error) {
+    const errorDetails = z.treeifyError(searchParams.error);
+    throw data(
+      {
+        type: "error",
+        details: errorDetails,
+      } as HttpResponse<undefined, typeof errorDetails>,
+      { status: 400 },
+    );
+  }
 
   const jobId = params.id;
-  const job = await bulkAltTextGenQueue.getJob(jobId ?? "");
+  const job = await getJobData({
+    jobId: jobId ?? "",
+    page: searchParams.data.page,
+  });
 
-  if (!job) {
+  if (!job || !jobId) {
     throw data("Bulk alt text generation Job was not found", { status: 404 });
   }
 
-  const state = await job.getState();
-  const progress = job.progress as BulkUpdateImageAltTextsProgress;
   return data({
-    jobId,
-    state,
-    progress,
+    ...job,
+    storeName,
   });
 }
 
 export default function Page() {
-  const { jobId, progress, state } = useLoaderData<typeof loader>();
-  const revalidator = useRevalidator();
+  const {
+    job,
+    generatedAltTexts,
+    totalGeneratedAltTexts,
+    itemsPerPage,
+    bulkSaveStatus,
+    storeName,
+  } = useLoaderData<typeof loader>();
 
-  useEffect(() => {
-    if (state === "completed" || state === "failed") {
-      return;
-    }
-
-    const interval = setInterval(async () => {
-      await revalidator.revalidate();
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, [state, revalidator]);
-
-  const statusBadge: Record<
-    typeof state,
-    "info" | "neutral" | "warning" | "success" | "critical" | "auto" | "caution"
-  > = {
-    waiting: "neutral",
-    "waiting-children": "neutral",
-    delayed: "warning",
-    prioritized: "info",
-    active: "info",
-    completed: "success",
-    failed: "critical",
-    unknown: "caution",
-  };
-  const statusIcon: Record<StepStatus, ReactElement> = {
-    Pending: <s-icon tone="neutral" type="clock-revert"></s-icon>,
-    "In Progress": <s-icon tone="info" type="replay"></s-icon>,
-    Completed: <s-icon tone="success" type="check-circle-filled"></s-icon>,
-    Cancelled: <s-icon tone="caution" type="x"></s-icon>,
-    Failed: <s-icon tone="critical" type="alert-octagon-filled"></s-icon>,
-  };
-
-  const JobStep = ({ step, status }: { step: string; status: StepStatus }) => (
-    <div>
-      <s-paragraph>
-        {statusIcon[status]}
-        {step}
-      </s-paragraph>
-    </div>
-  );
-  const JobStepsProgress = Object.keys(progress)
-    .map((i) => +i)
-    .sort((a, b) => a - b)
-    .map((step) => {
-      const { status, stepName } = progress[step];
-      return <JobStep key={step} status={status} step={stepName} />;
-    });
+  useRefetch({ status: job.status, bulkSaveStatus });
 
   return (
-    <div>
-      <h1>Job ID: {jobId}</h1>
-      <s-badge tone={statusBadge[state]}>{state}</s-badge>
-      <h2>Progress</h2>
-      {JobStepsProgress}
+    <div className="min-h-screen bg-linear-to-br from-background via-background to-secondary/20">
+      <Header />
+
+      <main className="mx-auto max-w-7xl px-6 py-9 sm:px-8">
+        <h2 className="mb-4 text-xl">
+          <span className="font-bold">Task Name:</span> {job.name}
+        </h2>
+
+        <JobMetadata
+          status={job.status}
+          bulkSaveStatus={bulkSaveStatus}
+          createdAt={job.createdAt}
+          finishedOn={job.finishedOn}
+          totalGeneratedAltTexts={totalGeneratedAltTexts}
+        />
+
+        <Timeline
+          createdAt={job.createdAt}
+          finishedOn={job.finishedOn}
+          processedOn={job.processedOn}
+          bulkSaveStatus={bulkSaveStatus}
+        />
+
+        <ProcessedImages
+          jobId={job.id}
+          autoSave={job.autoSave}
+          bulkSaveStatus={bulkSaveStatus}
+          generatedAltTexts={generatedAltTexts}
+          itemsPerPage={itemsPerPage}
+          status={job.status}
+          storeName={storeName}
+          totalGeneratedAltTexts={totalGeneratedAltTexts}
+        />
+      </main>
     </div>
   );
 }

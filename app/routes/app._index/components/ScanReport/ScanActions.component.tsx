@@ -1,7 +1,4 @@
-import { useFetcher, useNavigate, useNavigation } from "react-router";
-import { action } from "../../../api.bulk-generate-alt/route";
-import { useCallback, useEffect } from "react";
-import { bulkGenerateAltTexts } from "../../services/alt-generate.api";
+import { Link } from "react-router";
 
 type ScanActionsParams = {
   isPostingScanJob: boolean;
@@ -12,46 +9,17 @@ export default function ScanActions({
   isPostingScanJob,
   handleRescan,
 }: ScanActionsParams) {
-  const fetcher = useFetcher<typeof action>();
-  const navigate = useNavigate();
-  const navigation = useNavigation();
-
-  useEffect(() => {
-    const genAltFetcherData = fetcher.data;
-    const genAltFetcherState = fetcher.state;
-    if (genAltFetcherState === "idle" && genAltFetcherData?.job.id) {
-      navigate(`/app/jobs/${genAltFetcherData.job.id}`);
-    }
-  }, [fetcher, navigate]);
-
-  const handleBulkGenerateAltTexts = useCallback(() => {
-    bulkGenerateAltTexts({ fetcher: fetcher });
-  }, [fetcher]);
-
-  const isNavigatingToNewJob =
-    navigation.location?.pathname === `/app/jobs/${fetcher.data?.job.id}` &&
-    navigation.state !== "idle";
-  const isBulkGenerating = fetcher.state !== "idle" || isNavigatingToNewJob;
-
   return (
     <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-      <button
-        onClick={handleBulkGenerateAltTexts}
-        disabled={isBulkGenerating || isPostingScanJob}
-        className="flex-1 rounded-lg bg-linear-to-r from-accent to-primary px-4 py-3 font-medium text-accent-foreground transition-all hover:shadow-lg hover:shadow-accent/30 active:scale-95 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+      <Link
+        to="/app/new-job"
+        className="flex-1 rounded-lg bg-linear-to-r from-accent to-primary px-4 py-3 font-medium text-accent-foreground transition-all hover:shadow-lg hover:shadow-accent/30 active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
       >
-        {isBulkGenerating ? (
-          <>
-            <div className="h-4 w-4 rounded-full border-2 border-amber-50 border-y-teal-700 animate-spin"></div>
-            Generating Alt Texts...
-          </>
-        ) : (
-          "Generate Alt Texts"
-        )}
-      </button>
+        Generate Alt Texts
+      </Link>
       <button
         onClick={handleRescan}
-        disabled={isPostingScanJob || isBulkGenerating}
+        disabled={isPostingScanJob}
         className="flex-1 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 font-medium text-primary transition-all hover:bg-primary/10 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
       >
         {isPostingScanJob ? (
