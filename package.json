@@ -5,6 +5,7 @@
     "build": "react-router build",
     "dev": "shopify app dev",
     "workers": "tsx ./background-jobs/workers/index.ts",
+    "workers:dev": "tsx watch ./background-jobs/workers/index.ts",
     "config:link": "shopify app config link",
     "generate": "shopify app generate",
     "deploy": "shopify app deploy",

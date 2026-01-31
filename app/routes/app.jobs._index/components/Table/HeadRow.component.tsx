@@ -3,10 +3,13 @@ export default function HeadRow() {
     <thead>
       <tr className="border-b border-border">
         <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">
-          Job ID
+          Task Name
         </th>
         <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">
           Status
+        </th>
+        <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">
+          Saving of Alt Texts
         </th>
         <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">
           Created

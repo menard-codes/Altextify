@@ -37,4 +37,49 @@ export class NotificationMailerProcessor {
       We encountered a technical issue and we're already working to fix it.`,
     });
   }
+
+  sendBulkSaveSuccess({
+    shop,
+    mailerParams: { sendTo, cc, bcc },
+    jobPageURL,
+  }: {
+    shop: string;
+    mailerParams: Pick<SendMailParams, "sendTo" | "cc" | "bcc">;
+    jobPageURL: string;
+  }) {
+    const mailer = new MailerService();
+    mailer.sendMail({
+      subject: "Altextify: [SUCCESS] Saved Generated Alt Texts",
+      sendTo,
+      cc,
+      bcc,
+      body: `
+      Successfully saved the bulk generated alt texts in "${shop}".
+      Bulk Alt Text Generation Task page: ${jobPageURL}
+      `,
+    });
+  }
+
+  sendBulkSaveFailed({
+    shop,
+    mailerParams: { sendTo, cc, bcc },
+    jobPageURL,
+  }: {
+    shop: string;
+    mailerParams: Pick<SendMailParams, "sendTo" | "cc" | "bcc">;
+    jobPageURL: string;
+  }) {
+    const mailer = new MailerService();
+    mailer.sendMail({
+      subject: "Altextify: [FAILED] Failed Saving Generated Alt Texts",
+      sendTo,
+      cc,
+      bcc,
+      body: `
+      Failed saving all the generated alt texts to your shop "${shop}".
+      You can re-try again in the Job Page. If the issue persists, contact us.
+      Bulk Alt Text Generation Task page: ${jobPageURL}
+      `,
+    });
+  }
 }

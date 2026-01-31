@@ -42,14 +42,28 @@ model ScanReport {
 }
 
 model Job {
-  id          String    @id @default(cuid())
-  shop        String
-  status      JobStatus @default(waiting)
-  createdAt   DateTime  @default(now())
-  processedOn DateTime?
-  finishedOn  DateTime?
+  id                     String    @id @default(cuid())
+  shop                   String
+  name                   String
+  scope                  JobScope  @default(allProducts)
+  scopeIdentifiers       String[]
+  onlyGenerateMissingAlt Boolean
+  autoSave               Boolean
+  status                 JobStatus @default(waiting)
+  createdAt              DateTime  @default(now())
+  processedOn            DateTime?
+  finishedOn             DateTime?
 
   generatedAltTexts GeneratedAltText[]
+
+  // Each shop shouldn't have jobs with the same names
+  @@unique([shop, name])
+}
+
+enum JobScope {
+  selectedCollections
+  selectedProducts
+  allProducts
 }
 
 // ! NOTE: This should be-matching bullmq's job state types.
@@ -66,9 +80,14 @@ enum JobStatus {
 }
 
 model GeneratedAltText {
-  id      String @id @default(cuid())
-  imageId String
-  altText String
+  id               String  @id @default(cuid())
+  imageId          String
+  generatedAltText String
+  originalAltText  String
+  url              String
+  productId        String
+  productName      String
+  variantId        String?
 
   job   Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
   jobId String

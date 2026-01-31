@@ -4,10 +4,14 @@ import HeadRow from "./HeadRow.component";
 import SkeletonLoader from "./SkeletonLoader.component";
 import EmptyTable from "./EmptyTable.component";
 import TableBody from "./TableBody.component";
+import { BulkSaveStatus } from "app/routes/app.jobs.$id/types";
 
 type TableParams = {
   jobs: {
     id: string;
+    name: string;
+    autoSave: boolean;
+    bulkSaveStatus: BulkSaveStatus;
     status: $Enums.JobStatus;
     createdAt: Date;
     processedOn: Date | null;
