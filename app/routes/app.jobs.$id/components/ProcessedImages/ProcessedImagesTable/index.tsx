@@ -15,7 +15,6 @@ type ProcessedImagesTable = {
     variantId: string | null;
   }[];
   jobAutoSave: boolean;
-  storeName: string;
   bulkSaveStatus: BulkSaveStatus;
   pagination: {
     currentPage: number;
@@ -29,7 +28,6 @@ type ProcessedImagesTable = {
 export default function ProcessedImagesTable({
   generatedAltTexts,
   jobAutoSave,
-  storeName,
   bulkSaveStatus,
   pagination: {
     currentPage,
@@ -70,7 +68,6 @@ export default function ProcessedImagesTable({
                   <ProductInfo
                     productId={productId}
                     productName={productName}
-                    storeName={storeName}
                   />
 
                   {/* Alt Text Comparison */}
@@ -134,11 +131,9 @@ function ImageThumbnail({ url, altText }: { url: string; altText: string }) {
 }
 
 function ProductInfo({
-  storeName,
   productId,
   productName,
 }: {
-  storeName: string;
   productId: string;
   productName: string;
 }) {
@@ -146,7 +141,7 @@ function ProductInfo({
     <div className="mb-4">
       <p className="text-xs font-medium text-muted-foreground mb-1">Product</p>
       <a
-        href={`https://admin.shopify.com/store/${storeName}/products/${extractShopifyId(productId)}`}
+        href={`https://admin.shopify.com/products/${extractShopifyId(productId)}`}
         target="_blank"
         rel="noopener noreferrer"
         className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"

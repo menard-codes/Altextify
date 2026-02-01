@@ -11,9 +11,7 @@ import { getJobData } from "./server/get-job-data.server";
 import { getURLSearchParams } from "./server/get-url-search-params.server";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
-  const { session } = await authenticate.admin(request);
-  const storeName = session.shop.replace(".myshopify.com", "");
-
+  await authenticate.admin(request);
   const searchParams = getURLSearchParams({ request });
 
   if (searchParams.error) {
@@ -37,10 +35,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     throw data("Bulk alt text generation Job was not found", { status: 404 });
   }
 
-  return data({
-    ...job,
-    storeName,
-  });
+  return data(job);
 }
 
 export default function Page() {
@@ -50,7 +45,6 @@ export default function Page() {
     totalGeneratedAltTexts,
     itemsPerPage,
     bulkSaveStatus,
-    storeName,
   } = useLoaderData<typeof loader>();
 
   useRefetch({ status: job.status, bulkSaveStatus });
@@ -86,7 +80,6 @@ export default function Page() {
           generatedAltTexts={generatedAltTexts}
           itemsPerPage={itemsPerPage}
           status={job.status}
-          storeName={storeName}
           totalGeneratedAltTexts={totalGeneratedAltTexts}
         />
       </main>

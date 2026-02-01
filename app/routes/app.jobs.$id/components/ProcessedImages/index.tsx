@@ -21,7 +21,6 @@ type ProcessedImagesParams = {
   totalGeneratedAltTexts: number;
   status: $Enums.JobStatus;
   bulkSaveStatus: BulkSaveStatus;
-  storeName: string;
 };
 
 export default function ProcessedImages({
@@ -32,7 +31,6 @@ export default function ProcessedImages({
   totalGeneratedAltTexts,
   status,
   bulkSaveStatus,
-  storeName,
 }: ProcessedImagesParams) {
   const { handlePageChange, isChangingPage, pageEnd, pageStart, currentPage } =
     usePaginateProcessedImages({ itemsPerPage, totalGeneratedAltTexts });
@@ -63,7 +61,6 @@ export default function ProcessedImages({
         generatedAltTexts={generatedAltTexts}
         jobAutoSave={autoSave}
         bulkSaveStatus={bulkSaveStatus}
-        storeName={storeName}
         pagination={{
           currentPage,
           isChangingPage,
